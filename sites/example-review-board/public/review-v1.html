@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Low-Fidelity UX Review Board</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --ink: #1d1f23;
+      --muted: #686d76;
+      --line: #d9dce1;
+      --soft: #eceef1;
+      --accent: #1769e0;
+      --accent-soft: #e8f1ff;
+      --danger: #b42318;
+      --radius: 10px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); }
+    button, select, textarea, input { font: inherit; }
+    button, select, textarea { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
+    button { min-height: 34px; padding: 7px 11px; cursor: pointer; }
+    button:hover { background: var(--soft); }
+    button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 25%, transparent); outline-offset: 2px; }
+    .primary { color: #fff; background: var(--ink); border-color: var(--ink); }
+    .primary:hover { background: #35383e; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; }
+    .topbar, .toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: var(--ink); font-weight: 700; }
+    .brand-title { font-weight: 650; white-space: nowrap; }
+    .board-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .grow { flex: 1; }
+    .toolbar { padding-block: 8px; }
+    .toolbar label { color: var(--muted); font-size: 13px; }
+    .toolbar select { min-height: 34px; padding: 6px 28px 6px 9px; }
+    .file-button { position: relative; overflow: hidden; display: inline-flex; align-items: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+    .file-button:hover { background: var(--soft); }
+    .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+    .canvas { min-width: 0; padding: 28px; overflow: auto; background-color: #f7f8fa; background-image: radial-gradient(#d7dae0 1px, transparent 1px); background-size: 18px 18px; }
+    .canvas-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .canvas-head h1 { margin: 0 0 4px; font-size: 18px; }
+    .canvas-head p { margin: 0; color: var(--muted); font-size: 13px; }
+    .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
+    .screen-card { min-width: 0; }
+    .screen-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 13px; }
+    .screen-heading strong { font-weight: 650; }
+    .screen-heading span { color: var(--muted); }
+    .screen-frame { position: relative; min-height: 420px; overflow: hidden; border: 1px solid #aeb3bb; border-radius: var(--radius); background: #fff; box-shadow: 0 14px 30px rgba(24, 28, 36, .10); cursor: crosshair; }
+    .screen-content { min-height: 420px; }
+    .screen-content > img { display: block; width: 100%; height: auto; min-height: 420px; object-fit: contain; background: #fff; }
+    .screen-content > pre { min-height: 420px; margin: 0; padding: 18px; overflow: auto; color: #202226; background: #fff; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+    .screen-content > svg { display: block; width: 100%; min-height: 420px; }
+    .pin { position: absolute; width: 28px; height: 28px; min-height: 28px; padding: 0; display: grid; place-items: center; transform: translate(-50%, -100%); border: 2px solid #fff; border-radius: 50% 50% 50% 8px; color: #fff; background: var(--accent); box-shadow: 0 5px 14px rgba(23, 105, 224, .32); font-size: 11px; font-weight: 700; }
+    .pin.active { outline: 4px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+    .sidebar { min-height: 0; display: grid; grid-template-rows: auto minmax(150px, 1fr) auto; border-left: 1px solid var(--line); background: var(--panel); }
+    .sidebar-head { padding: 16px; border-bottom: 1px solid var(--line); }
+    .sidebar-head-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .sidebar-head h2 { margin: 0; font-size: 16px; }
+    .sidebar-head p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .comment-list { margin: 0; padding: 8px 14px; overflow: auto; list-style: none; }
+    .comment-item { border-bottom: 1px solid var(--line); }
+    .comment-button { width: 100%; padding: 13px 4px; text-align: left; border: 0; border-radius: 8px; background: transparent; }
+    .comment-button.active { padding-inline: 9px; background: var(--accent-soft); }
+    .comment-meta, .comment-footer { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }
+    .comment-text { display: block; margin: 7px 0 9px; line-height: 1.45; font-size: 13px; }
+    .priority-blocking { color: var(--danger); }
+    .empty { padding: 24px 4px; color: var(--muted); font-size: 13px; text-align: center; }
+    .composer { padding: 14px; border-top: 1px solid var(--line); }
+    .target { margin-bottom: 9px; color: var(--muted); font-size: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .composer select, .composer textarea { width: 100%; }
+    .composer select { min-height: 36px; padding: 6px 8px; }
+    .composer textarea { min-height: 88px; padding: 9px; resize: vertical; }
+    .composer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .status { position: fixed; left: 50%; bottom: 20px; z-index: 20; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; padding: 9px 13px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: 0 8px 28px rgba(0,0,0,.18); transition: .18s ease; font-size: 13px; }
+    .status.show { opacity: 1; transform: translate(-50%, 0); }
+    .wireframe { min-height: 420px; padding: 18px; color: #24262a; background: #fff; }
+    .wf-status { display: flex; justify-content: space-between; color: #777; font-size: 10px; }
+    .wf-nav { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 24px; font-weight: 650; }
+    .wf-icon { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #999; border-radius: 6px; }
+    .wf-title { margin: 0 0 6px; font-size: 20px; }
+    .wf-copy { margin: 0 0 16px; color: #686868; font-size: 13px; }
+    .wf-field, .wf-button, .wf-row { border: 1px solid #9b9b9b; border-radius: 7px; }
+    .wf-field { padding: 12px; color: #777; margin-bottom: 9px; }
+    .wf-button { padding: 12px; color: #fff; background: #262626; text-align: center; font-weight: 650; }
+    .wf-section { margin: 20px 0 8px; color: #777; font-size: 12px; }
+    .wf-row { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; }
+    .wf-thumb { width: 38px; height: 38px; background: #e7e7e7; border-radius: 6px; }
+    .wf-lines { flex: 1; }
+    .wf-line { width: 70%; height: 7px; margin: 4px 0; border-radius: 4px; background: #777; }
+    .wf-line.short { width: 42%; background: #c1c1c1; }
+    .profile-wireframe { min-height: 560px; color: #24262a; background: #fff; }
+    .gh-bar { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid #aaa; font-size: 12px; }
+    .gh-mark { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #777; border-radius: 50%; font-weight: 700; }
+    .gh-search { flex: 1; padding: 7px 10px; border: 1px solid #aaa; border-radius: 6px; color: #777; }
+    .gh-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 26px; padding: 22px; }
+    .profile-avatar { width: 132px; aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #999; border-radius: 50%; color: #777; background: #eee; }
+    .profile-name { margin: 12px 0 2px; font-size: 18px; font-weight: 650; }
+    .profile-handle, .profile-copy { color: #6b6b6b; font-size: 12px; }
+    .profile-copy { margin-top: 12px; line-height: 1.5; }
+    .readme { border: 1px solid #999; border-radius: 8px; overflow: hidden; }
+    .readme-head { padding: 9px 13px; border-bottom: 1px solid #bbb; color: #777; font-size: 11px; }
+    .readme-body { padding: 18px; }
+    .positioning { margin: 0 0 7px; font-size: 22px; }
+    .intro { max-width: 560px; margin: 0 0 13px; color: #5f5f5f; font-size: 13px; line-height: 1.5; }
+    .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
+    .tag { padding: 5px 8px; border: 1px solid #aaa; border-radius: 14px; color: #555; font-size: 11px; }
+    .section-label { margin: 16px 0 8px; color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .featured { padding: 14px; border: 2px solid #555; border-radius: 8px; }
+    .featured h3 { margin: 0 0 7px; font-size: 16px; }
+    .featured p { margin: 5px 0; color: #555; font-size: 12px; line-height: 1.45; }
+    .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+    .evidence { padding: 9px; border: 1px dashed #aaa; border-radius: 6px; color: #666; font-size: 11px; }
+    .repo-action { display: inline-block; padding: 9px 12px; border-radius: 6px; color: #fff; background: #262626; font-size: 12px; font-weight: 650; }
+    .supporting { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .supporting-item { padding: 10px; border: 1px solid #aaa; border-radius: 6px; font-size: 11px; }
+    .supporting-item strong { display: block; margin-bottom: 4px; }
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .sidebar { border-left: 0; border-top: 1px solid var(--line); }
+      .topbar, .toolbar { flex-wrap: wrap; }
+      .board-name { display: none; }
+    }
+    @media (max-width: 520px) {
+      .canvas { padding: 18px; }
+      .screen-grid { grid-template-columns: 1fr; }
+      .toolbar .grow { display: none; }
+      .gh-bar > span:not(.gh-mark), .gh-search { display: none; }
+      .gh-layout { grid-template-columns: 1fr; padding: 14px; }
+      .profile-summary { display: grid; grid-template-columns: 72px 1fr; gap: 12px; }
+      .profile-avatar { width: 72px; }
+      .profile-name { margin-top: 0; }
+      .evidence-grid, .supporting { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">W</span>
+        <span class="brand-title">Wireframe Review</span>
+        <span class="board-name" id="board-name"></span>
+      </div>
+      <span class="grow"></span>
+      <button type="button" id="export-json">Export JSON</button>
+      <button type="button" id="export-markdown">Export Markdown</button>
+      <button type="button" id="export-html" class="primary">Export HTML</button>
+    </header>
+
+    <div class="toolbar">
+      <label for="version-select">Version</label>
+      <select id="version-select" aria-label="Design version"></select>
+      <label for="status-filter">Comments</label>
+      <select id="status-filter" aria-label="Filter comments">
+        <option value="all">All</option>
+        <option value="open">Open</option>
+        <option value="blocking">Blocking</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <span class="grow"></span>
+      <label class="file-button">Import feedback JSON<input type="file" id="import-json" accept="application/json,.json"></label>
+      <button type="button" id="clear-draft">Clear local draft</button>
+    </div>
+
+    <div class="workspace">
+      <main class="canvas">
+        <div class="canvas-head">
+          <div>
+            <h1 id="flow-title"></h1>
+            <p id="flow-meta"></p>
+          </div>
+          <p>Click a screen or semantic component to place a comment.</p>
+        </div>
+        <div class="screen-grid" id="screen-grid"></div>
+      </main>
+
+      <aside class="sidebar" aria-label="Review comments">
+        <div class="sidebar-head">
+          <div class="sidebar-head-row"><h2>Comments</h2><span id="comment-count"></span></div>
+          <p>Feedback is stored locally until exported.</p>
+        </div>
+        <ul class="comment-list" id="comment-list"></ul>
+        <form class="composer" id="comment-form">
+          <div class="target" id="comment-target">Select a point on a screen.</div>
+          <div class="form-row">
+            <select id="comment-category" aria-label="Comment category">
+              <option value="problem">Problem</option>
+              <option value="suggestion">Suggestion</option>
+              <option value="question">Question</option>
+              <option value="approval">Approval</option>
+            </select>
+            <select id="comment-priority" aria-label="Comment priority">
+              <option value="important">Important</option>
+              <option value="blocking">Blocking</option>
+              <option value="later">Later</option>
+            </select>
+          </div>
+          <label for="comment-content" class="target">Comment</label>
+          <textarea id="comment-content" required placeholder="Describe the issue, suggestion, or decision needed."></textarea>
+          <div class="composer-actions">
+            <button type="reset">Cancel</button>
+            <button type="submit" class="primary">Add comment</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <template id="template-W01">
+    <article class="profile-wireframe" data-component-id="W01.root" aria-label="Sample project overview wireframe">
+      <header class="gh-bar" data-component-id="W01.global-nav">
+        <span class="gh-mark">PX</span><span>Workspace</span><span>Modules</span><span>Resources</span><span class="gh-search">Search project</span><span>Open</span>
+      </header>
+      <div class="gh-layout">
+        <aside class="profile-summary" data-component-id="W01.profile-summary">
+          <div class="profile-avatar" data-component-id="W01.avatar">Project</div>
+          <div>
+            <div class="profile-name">Project Atlas</div>
+            <div class="profile-handle">Sample workspace</div>
+            <div class="profile-copy">Fictional content for review-board testing.<br><br>3 modules · 2 active flows</div>
+          </div>
+        </aside>
+        <main class="readme" data-component-id="W01.profile-readme">
+          <div class="readme-head">Project Atlas / Overview</div>
+          <div class="readme-body">
+            <section data-component-id="W01.positioning">
+              <h2 class="positioning">知识工具产品示例</h2>
+              <p class="intro">用于展示知识存储、检索和评审工作流的虚构产品。</p>
+              <div class="tags" data-component-id="W01.skills"><span class="tag">Knowledge</span><span class="tag">Search</span><span class="tag">Review</span></div>
+            </section>
+
+            <div class="section-label">代表项目</div>
+            <section class="featured" data-component-id="W01.featured-project">
+              <h3>Knowledge Base</h3>
+              <p>解决什么问题：存储并检索项目知识。</p>
+              <p>核心功能：知识存储 · 内容检索 · 评审工作流</p>
+              <div class="evidence-grid">
+                <div class="evidence" data-component-id="W01.architecture">技术架构：待从项目 README 提取</div>
+                <div class="evidence" data-component-id="W01.project-status">当前状态：待确认</div>
+              </div>
+              <span class="repo-action" data-component-id="W01.view-repository">查看代表项目 →</span>
+            </section>
+
+            <div class="section-label">其他项目</div>
+            <section class="supporting" data-component-id="W01.supporting-projects">
+              <div class="supporting-item"><strong>Requirements Draft</strong>需求整理</div>
+              <div class="supporting-item"><strong>Research Index</strong>研究索引</div>
+              <div class="supporting-item"><strong>Document Finder</strong>信息检索</div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </article>
+  </template>
+
+  <script type="application/json" id="design-manifest">
+  {
+    "schema_version": "1.0",
+    "board_id": "sample-project-review",
+    "board_name": "Sample Project Review",
+    "design_version": "v1",
+    "sources": [
+      {
+        "source_id": "SRC-001",
+        "source_url": "https://example.com/projects/sample",
+        "normalized_url": "https://example.com/projects/sample",
+        "captured_at": "2000-01-01T00:00:00Z",
+        "source_type": "web-page",
+        "inspection_lane": "source-only"
+      }
+    ],
+    "versions": [
+      { "version": "v1", "label": "v1 Draft", "created_at": "2000-01-01T00:00:00.000Z" }
+    ],
+    "tokens": {
+      "fidelity": "low",
+      "color_mode": "grayscale",
+      "spacing_scale": [4, 8, 16, 24, 32]
+    },
+    "screens": [
+      { "screen_id": "W01", "name": "Sample Project Overview", "version": "v1", "render_type": "html", "template_id": "template-W01", "viewport": "responsive desktop-first", "user_intent": "Understand a fictional project's structure and open its primary module" }
+    ],
+    "components": [
+      { "component_id": "W01.root", "screen_id": "W01", "role": "main" },
+      { "component_id": "W01.global-nav", "screen_id": "W01", "role": "navigation" },
+      { "component_id": "W01.profile-summary", "screen_id": "W01", "role": "complementary" },
+      { "component_id": "W01.avatar", "screen_id": "W01", "role": "img" },
+      { "component_id": "W01.profile-readme", "screen_id": "W01", "role": "article" },
+      { "component_id": "W01.positioning", "screen_id": "W01", "role": "region" },
+      { "component_id": "W01.skills", "screen_id": "W01", "role": "list" },
+      { "component_id": "W01.featured-project", "screen_id": "W01", "role": "region" },
+      { "component_id": "W01.architecture", "screen_id": "W01", "role": "note" },
+      { "component_id": "W01.project-status", "screen_id": "W01", "role": "note" },
+      { "component_id": "W01.view-repository", "screen_id": "W01", "role": "link" },
+      { "component_id": "W01.supporting-projects", "screen_id": "W01", "role": "list" }
+    ],
+    "interactions": [
+      { "interaction_id": "I001", "trigger_component_id": "W01.view-repository", "event": "activate", "outcome": "Open the Knowledge Base module" }
+    ],
+    "states": [
+      { "state_id": "W01.default", "screen_id": "W01", "name": "default" },
+      { "state_id": "W01.evidence-incomplete", "screen_id": "W01", "name": "project evidence incomplete" }
+    ],
+    "assets": [
+      { "asset_id": "project.marker", "screen_id": "W01", "purpose": "Identify the sample project", "alt": "Sample project marker", "fit": "square center crop", "needs_visual_review": true }
+    ],
+    "submissions": [],
+    "comments": []
+  }
+  </script>
+
+  <script>
+    (() => {
+      "use strict";
+      const manifestNode = document.getElementById("design-manifest");
+      const initialManifest = JSON.parse(manifestNode.textContent);
+      const storageKey = `low-fi-review:${initialManifest.board_id}`;
+      const state = {
+        manifest: initialManifest,
+        version: initialManifest.design_version,
+        selected: null,
+        filter: "all"
+      };
+
+      const els = {
+        boardName: document.getElementById("board-name"),
+        flowTitle: document.getElementById("flow-title"),
+        flowMeta: document.getElementById("flow-meta"),
+        screenGrid: document.getElementById("screen-grid"),
+        commentList: document.getElementById("comment-list"),
+        commentCount: document.getElementById("comment-count"),
+        commentForm: document.getElementById("comment-form"),
+        commentTarget: document.getElementById("comment-target"),
+        commentContent: document.getElementById("comment-content"),
+        commentCategory: document.getElementById("comment-category"),
+        commentPriority: document.getElementById("comment-priority"),
+        versionSelect: document.getElementById("version-select"),
+        statusFilter: document.getElementById("status-filter"),
+        status: document.getElementById("status")
+      };
+
+      function notify(message) {
+        els.status.textContent = message;
+        els.status.classList.add("show");
+        window.setTimeout(() => els.status.classList.remove("show"), 1800);
+      }
+
+      function clampRatio(value) {
+        return Math.max(0, Math.min(1, Number(value.toFixed(4))));
+      }
+
+      function loadDraft() {
+        try {
+          const draft = JSON.parse(localStorage.getItem(storageKey));
+          if (draft && Array.isArray(draft.comments)) state.manifest.comments = draft.comments;
+        } catch (error) {
+          console.warn("Unable to load local review draft", error);
+        }
+      }
+
+      function saveDraft() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({ comments: state.manifest.comments }));
+        } catch (error) {
+          notify("Local storage unavailable. Export before closing.");
+        }
+      }
+
+      function screenTemplate(screen) {
+        if (screen.render_type === "ascii") {
+          const pre = document.createElement("pre");
+          pre.textContent = screen.content || "";
+          return pre;
+        }
+        if (screen.render_type === "image") {
+          const image = document.createElement("img");
+          image.src = screen.src || "";
+          image.alt = screen.alt || "Wireframe requiring visual review";
+          image.dataset.assetId = screen.asset_id || "";
+          return image;
+        }
+        if (screen.render_type === "html" || screen.render_type === "svg") {
+          const template = document.getElementById(screen.template_id);
+          if (!template) throw new Error(`Missing template ${screen.template_id}`);
+          return template.content.cloneNode(true);
+        }
+        throw new Error(`Unsupported render_type ${screen.render_type}`);
+      }
+
+      function componentAt(target, frame) {
+        const component = target.closest("[data-component-id]");
+        return component && frame.contains(component) ? component.dataset.componentId : null;
+      }
+
+      function visibleComments() {
+        return state.manifest.comments.filter(comment => {
+          if (comment.screen_version !== state.version) return false;
+          if (state.filter === "all") return true;
+          if (state.filter === "blocking") return comment.priority === "blocking" && comment.status !== "resolved";
+          return comment.status === state.filter;
+        });
+      }
+
+      function renderVersions() {
+        els.versionSelect.replaceChildren();
+        state.manifest.versions.forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.version;
+          option.textContent = item.label || item.version;
+          option.selected = item.version === state.version;
+          els.versionSelect.append(option);
+        });
+      }
+
+      function renderScreens() {
+        els.screenGrid.replaceChildren();
+        state.manifest.screens.filter(screen => screen.version === state.version).forEach(screen => {
+          const card = document.createElement("section");
+          card.className = "screen-card";
+          const heading = document.createElement("div");
+          heading.className = "screen-heading";
+          heading.innerHTML = `<strong></strong><span></span>`;
+          heading.querySelector("strong").textContent = screen.name;
+          heading.querySelector("span").textContent = screen.screen_id;
+          const frame = document.createElement("div");
+          frame.className = "screen-frame";
+          frame.dataset.screenId = screen.screen_id;
+          frame.dataset.screenVersion = screen.version;
+          frame.setAttribute("aria-label", `${screen.screen_id} ${screen.name}`);
+          const content = document.createElement("div");
+          content.className = "screen-content";
+          try { content.append(screenTemplate(screen)); }
+          catch (error) {
+            const fallback = document.createElement("pre");
+            fallback.textContent = error.message;
+            content.append(fallback);
+          }
+          frame.append(content);
+          frame.addEventListener("click", event => selectAnchor(event, frame));
+          card.append(heading, frame);
+          els.screenGrid.append(card);
+        });
+        renderPins();
+      }
+
+      function renderPins() {
+        document.querySelectorAll(".pin").forEach(pin => pin.remove());
+        visibleComments().forEach((comment, index) => {
+          const frame = document.querySelector(`[data-screen-id="${CSS.escape(comment.screen_id)}"][data-screen-version="${CSS.escape(comment.screen_version)}"]`);
+          if (!frame) return;
+          const pin = document.createElement("button");
+          pin.type = "button";
+          pin.className = `pin${state.selected && state.selected.comment_id === comment.comment_id ? " active" : ""}`;
+          pin.style.left = `${comment.anchor.x_ratio * 100}%`;
+          pin.style.top = `${comment.anchor.y_ratio * 100}%`;
+          pin.dataset.commentId = comment.comment_id;
+          pin.setAttribute("aria-label", `Open comment ${comment.comment_id}`);
+          pin.textContent = String(index + 1);
+          pin.addEventListener("click", event => {
+            event.stopPropagation();
+            state.selected = comment;
+            renderComments();
+            renderPins();
+          });
+          frame.append(pin);
+        });
+      }
+
+      function renderComments() {
+        const comments = visibleComments();
+        els.commentList.replaceChildren();
+        els.commentCount.textContent = `${comments.length} shown`;
+        if (!comments.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = "No comments match this filter.";
+          els.commentList.append(empty);
+          return;
+        }
+        comments.forEach(comment => {
+          const item = document.createElement("li");
+          item.className = "comment-item";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `comment-button${state.selected && state.selected.comment_id === comment.comment_id ? " active" : ""}`;
+          const meta = document.createElement("span");
+          meta.className = "comment-meta";
+          meta.innerHTML = `<span></span><span></span>`;
+          meta.children[0].textContent = `${comment.screen_id}${comment.component_id ? ` · ${comment.component_id}` : ""}`;
+          meta.children[1].textContent = comment.comment_id;
+          const text = document.createElement("span");
+          text.className = "comment-text";
+          text.textContent = comment.content;
+          const footer = document.createElement("span");
+          footer.className = "comment-footer";
+          footer.innerHTML = `<span></span><span></span>`;
+          footer.children[0].textContent = `${comment.category} · ${comment.priority}`;
+          if (comment.priority === "blocking") footer.children[0].className = "priority-blocking";
+          footer.children[1].textContent = comment.status;
+          button.append(meta, text, footer);
+          button.addEventListener("click", () => {
+            state.selected = comment;
+            renderComments();
+            renderPins();
+            document.querySelector(`[data-comment-id="${CSS.escape(comment.comment_id)}"]`)?.focus();
+          });
+          item.append(button);
+          els.commentList.append(item);
+        });
+      }
+
+      function selectAnchor(event, frame) {
+        const rect = frame.getBoundingClientRect();
+        const x = clampRatio((event.clientX - rect.left) / rect.width);
+        const y = clampRatio((event.clientY - rect.top) / rect.height);
+        state.selected = {
+          screen_id: frame.dataset.screenId,
+          component_id: componentAt(event.target, frame),
+          screen_version: frame.dataset.screenVersion,
+          anchor: { x_ratio: x, y_ratio: y }
+        };
+        els.commentTarget.textContent = `Target: ${state.selected.screen_id}${state.selected.component_id ? ` · ${state.selected.component_id}` : ""} · ${Math.round(x * 100)}%, ${Math.round(y * 100)}%`;
+        els.commentContent.focus();
+        renderPins();
+      }
+
+      function nextCommentId() {
+        const numbers = state.manifest.comments.map(comment => Number(String(comment.comment_id).replace(/\D/g, "")) || 0);
+        return `C${String(Math.max(0, ...numbers) + 1).padStart(3, "0")}`;
+      }
+
+      function addComment(event) {
+        event.preventDefault();
+        if (!state.selected || !state.selected.screen_id || state.selected.comment_id) {
+          notify("Select a new point on a screen first.");
+          return;
+        }
+        const content = els.commentContent.value.trim();
+        if (!content) return;
+        const comment = {
+          comment_id: nextCommentId(),
+          screen_id: state.selected.screen_id,
+          component_id: state.selected.component_id,
+          screen_version: state.selected.screen_version,
+          anchor: state.selected.anchor,
+          category: els.commentCategory.value,
+          priority: els.commentPriority.value,
+          content,
+          status: "open",
+          created_at: new Date().toISOString(),
+          resolution: null
+        };
+        state.manifest.comments.push(comment);
+        state.selected = comment;
+        els.commentForm.reset();
+        els.commentTarget.textContent = "Select a point on a screen.";
+        saveDraft();
+        renderComments();
+        renderPins();
+        notify("Comment saved locally.");
+      }
+
+      function currentManifest() {
+        return JSON.parse(JSON.stringify(state.manifest));
+      }
+
+      function download(name, type, content) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = name;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportJson() {
+        const payload = { exported_at: new Date().toISOString(), manifest: currentManifest() };
+        download(`${state.manifest.board_id}-${state.version}-feedback.json`, "application/json", JSON.stringify(payload, null, 2));
+      }
+
+      function exportMarkdown() {
+        const comments = state.manifest.comments.filter(comment => comment.screen_version === state.version);
+        const rows = comments.map(comment => `| ${comment.comment_id} | ${comment.screen_id} | ${comment.component_id || "-"} | ${comment.priority} | ${comment.status} | ${comment.content.replace(/\|/g, "\\|").replace(/\n/g, " ")} |`);
+        const markdown = `# ${state.manifest.board_name} review\n\n- Version: ${state.version}\n- Exported: ${new Date().toISOString()}\n\n| ID | Screen | Component | Priority | Status | Comment |\n|---|---|---|---|---|---|\n${rows.join("\n")}\n`;
+        download(`${state.manifest.board_id}-${state.version}-feedback.md`, "text/markdown", markdown);
+      }
+
+      function exportHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelector("#design-manifest").textContent = JSON.stringify(currentManifest(), null, 2);
+        const serialized = `<!doctype html>\n${clone.outerHTML}`;
+        download(`${state.manifest.board_id}-${state.version}-review.html`, "text/html", serialized);
+      }
+
+      async function importFeedback(file) {
+        try {
+          const payload = JSON.parse(await file.text());
+          const imported = payload.manifest || payload;
+          if (imported.schema_version !== "1.0" || !Array.isArray(imported.comments)) throw new Error("Unsupported or invalid feedback schema");
+          state.manifest.comments = imported.comments;
+          saveDraft();
+          renderComments();
+          renderPins();
+          notify(`Imported ${imported.comments.length} comments.`);
+        } catch (error) {
+          notify(`Import failed: ${error.message}`);
+        }
+      }
+
+      function init() {
+        loadDraft();
+        els.boardName.textContent = `/ ${state.manifest.board_name}`;
+        els.flowTitle.textContent = state.manifest.board_name;
+        els.flowMeta.textContent = "Low-fidelity review board · semantic HTML + Design Manifest";
+        renderVersions();
+        renderScreens();
+        renderComments();
+
+        els.commentForm.addEventListener("submit", addComment);
+        els.commentForm.addEventListener("reset", () => {
+          state.selected = null;
+          els.commentTarget.textContent = "Select a point on a screen.";
+          window.setTimeout(renderPins);
+        });
+        els.versionSelect.addEventListener("change", () => {
+          state.version = els.versionSelect.value;
+          state.selected = null;
+          renderScreens();
+          renderComments();
+        });
+        els.statusFilter.addEventListener("change", () => {
+          state.filter = els.statusFilter.value;
+          renderComments();
+          renderPins();
+        });
+        document.getElementById("export-json").addEventListener("click", exportJson);
+        document.getElementById("export-markdown").addEventListener("click", exportMarkdown);
+        document.getElementById("export-html").addEventListener("click", exportHtml);
+        document.getElementById("import-json").addEventListener("change", event => {
+          const file = event.target.files[0];
+          if (file) importFeedback(file);
+          event.target.value = "";
+        });
+        document.getElementById("clear-draft").addEventListener("click", () => {
+          localStorage.removeItem(storageKey);
+          state.manifest.comments = [];
+          state.selected = null;
+          renderComments();
+          renderPins();
+          notify("Local draft cleared.");
+        });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

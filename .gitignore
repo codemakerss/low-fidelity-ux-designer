@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# JavaScript / frontend
+node_modules/
+.next/
+.vinext/
+dist/
+out/
+coverage/
+
+# Local runtimes and build products
+.wrangler/
+outputs/
+work/
+*.log
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local nested-repository backups must never be published
+/.nested-git-backups/

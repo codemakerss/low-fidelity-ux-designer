@@ -1,0 +1,4 @@
+interface:
+  display_name: "Low-Fidelity UX Designer"
+  short_description: "将 URL 或本地 HTML 转成可批注看板，并安全回传 Codex、Claude Code 或 OpenCode"
+  default_prompt: "Use $low-fidelity-ux-designer to turn my URL, local HTML, or product idea into a versioned review board, submit comments through a configured Codex, Claude Code, or OpenCode adapter, and validate the revision."

@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob: file:; connect-src http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <title>Low-Fidelity UX Review Board</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --ink: #1d1f23;
+      --muted: #686d76;
+      --line: #d9dce1;
+      --soft: #eceef1;
+      --accent: #1769e0;
+      --accent-soft: #e8f1ff;
+      --danger: #b42318;
+      --radius: 10px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); }
+    button, select, textarea, input { font: inherit; }
+    button, select, textarea { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
+    button { min-height: 34px; padding: 7px 11px; cursor: pointer; }
+    button:hover { background: var(--soft); }
+    button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 25%, transparent); outline-offset: 2px; }
+    .primary { color: #fff; background: var(--ink); border-color: var(--ink); }
+    .primary:hover { background: #35383e; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; }
+    .topbar, .toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: var(--ink); font-weight: 700; }
+    .brand-title { font-weight: 650; white-space: nowrap; }
+    .board-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .grow { flex: 1; }
+    .toolbar { padding-block: 8px; }
+    .toolbar label { color: var(--muted); font-size: 13px; }
+    .toolbar select { min-height: 34px; padding: 6px 28px 6px 9px; }
+    .file-button { position: relative; overflow: hidden; display: inline-flex; align-items: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+    .file-button:hover { background: var(--soft); }
+    .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+    .canvas { min-width: 0; padding: 28px; overflow: auto; background-color: #f7f8fa; background-image: radial-gradient(#d7dae0 1px, transparent 1px); background-size: 18px 18px; }
+    .canvas-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .canvas-head h1 { margin: 0 0 4px; font-size: 18px; }
+    .canvas-head p { margin: 0; color: var(--muted); font-size: 13px; }
+    .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
+    .screen-card { min-width: 0; }
+    .screen-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 13px; }
+    .screen-heading strong { font-weight: 650; }
+    .screen-heading span { color: var(--muted); }
+    .screen-frame { position: relative; min-height: 420px; overflow: hidden; border: 1px solid #aeb3bb; border-radius: var(--radius); background: #fff; box-shadow: 0 14px 30px rgba(24, 28, 36, .10); cursor: crosshair; }
+    .screen-content { min-height: 420px; }
+    .screen-content > img { display: block; width: 100%; height: auto; min-height: 420px; object-fit: contain; background: #fff; }
+    .screen-content > pre { min-height: 420px; margin: 0; padding: 18px; overflow: auto; color: #202226; background: #fff; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+    .screen-content > svg { display: block; width: 100%; min-height: 420px; }
+    .pin { position: absolute; width: 28px; height: 28px; min-height: 28px; padding: 0; display: grid; place-items: center; transform: translate(-50%, -100%); border: 2px solid #fff; border-radius: 50% 50% 50% 8px; color: #fff; background: var(--accent); box-shadow: 0 5px 14px rgba(23, 105, 224, .32); font-size: 11px; font-weight: 700; }
+    .pin.active { outline: 4px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+    .sidebar { min-height: 0; display: grid; grid-template-rows: auto minmax(150px, 1fr) auto; border-left: 1px solid var(--line); background: var(--panel); }
+    .sidebar-head { padding: 16px; border-bottom: 1px solid var(--line); }
+    .sidebar-head-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .sidebar-head h2 { margin: 0; font-size: 16px; }
+    .sidebar-head p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .comment-list { margin: 0; padding: 8px 14px; overflow: auto; list-style: none; }
+    .comment-item { border-bottom: 1px solid var(--line); }
+    .comment-button { width: 100%; padding: 13px 4px; text-align: left; border: 0; border-radius: 8px; background: transparent; }
+    .comment-button.active { padding-inline: 9px; background: var(--accent-soft); }
+    .comment-meta, .comment-footer { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }
+    .comment-text { display: block; margin: 7px 0 9px; line-height: 1.45; font-size: 13px; }
+    .priority-blocking { color: var(--danger); }
+    .empty { padding: 24px 4px; color: var(--muted); font-size: 13px; text-align: center; }
+    .composer { padding: 14px; border-top: 1px solid var(--line); }
+    .target { margin-bottom: 9px; color: var(--muted); font-size: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .composer select, .composer textarea { width: 100%; }
+    .composer select { min-height: 36px; padding: 6px 8px; }
+    .composer textarea { min-height: 88px; padding: 9px; resize: vertical; }
+    .composer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .status { position: fixed; left: 50%; bottom: 20px; z-index: 20; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; padding: 9px 13px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: 0 8px 28px rgba(0,0,0,.18); transition: .18s ease; font-size: 13px; }
+    .status.show { opacity: 1; transform: translate(-50%, 0); }
+    dialog { width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--panel); box-shadow: 0 24px 70px rgba(0,0,0,.24); }
+    dialog::backdrop { background: rgba(20, 22, 26, .42); }
+    .host-form { display: grid; gap: 12px; padding: 20px; }
+    .host-form h2 { margin: 0; font-size: 18px; }
+    .host-form p { margin: 0 0 4px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .host-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    .host-form input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--panel); }
+    .host-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .wireframe { min-height: 420px; padding: 18px; color: #24262a; background: #fff; }
+    .wf-status { display: flex; justify-content: space-between; color: #777; font-size: 10px; }
+    .wf-nav { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 24px; font-weight: 650; }
+    .wf-icon { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #999; border-radius: 6px; }
+    .wf-title { margin: 0 0 6px; font-size: 20px; }
+    .wf-copy { margin: 0 0 16px; color: #686868; font-size: 13px; }
+    .wf-field, .wf-button, .wf-row { border: 1px solid #9b9b9b; border-radius: 7px; }
+    .wf-field { padding: 12px; color: #777; margin-bottom: 9px; }
+    .wf-button { padding: 12px; color: #fff; background: #262626; text-align: center; font-weight: 650; }
+    .wf-section { margin: 20px 0 8px; color: #777; font-size: 12px; }
+    .wf-row { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; }
+    .wf-thumb { width: 38px; height: 38px; background: #e7e7e7; border-radius: 6px; }
+    .wf-lines { flex: 1; }
+    .wf-line { width: 70%; height: 7px; margin: 4px 0; border-radius: 4px; background: #777; }
+    .wf-line.short { width: 42%; background: #c1c1c1; }
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .sidebar { border-left: 0; border-top: 1px solid var(--line); }
+      .topbar, .toolbar { flex-wrap: wrap; }
+      .board-name { display: none; }
+    }
+    @media (max-width: 520px) {
+      .canvas { padding: 18px; }
+      .screen-grid { grid-template-columns: 1fr; }
+      .toolbar .grow { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">W</span>
+        <span class="brand-title">Wireframe Review</span>
+        <span class="board-name" id="board-name"></span>
+      </div>
+      <span class="grow"></span>
+      <span id="host-status" class="board-name" aria-live="polite">Host: detecting</span>
+      <button type="button" id="connect-host">Connect host</button>
+      <button type="button" id="submit-review" class="primary">Submit to current host</button>
+      <button type="button" id="copy-package">Copy review package</button>
+      <button type="button" id="export-json">Export JSON</button>
+      <button type="button" id="export-markdown">Export Markdown</button>
+      <button type="button" id="export-html" class="primary">Export HTML</button>
+    </header>
+
+    <div class="toolbar">
+      <label for="version-select">Version</label>
+      <select id="version-select" aria-label="Design version"></select>
+      <label for="status-filter">Comments</label>
+      <select id="status-filter" aria-label="Filter comments">
+        <option value="all">All</option>
+        <option value="open">Open</option>
+        <option value="blocking">Blocking</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <span class="grow"></span>
+      <label class="file-button">Import feedback JSON<input type="file" id="import-json" accept="application/json,.json"></label>
+      <button type="button" id="clear-draft">Clear local draft</button>
+    </div>
+
+    <div class="workspace">
+      <main class="canvas">
+        <div class="canvas-head">
+          <div>
+            <h1 id="flow-title"></h1>
+            <p id="flow-meta"></p>
+          </div>
+          <p>Click a screen or semantic component to place a comment.</p>
+        </div>
+        <div class="screen-grid" id="screen-grid"></div>
+      </main>
+
+      <aside class="sidebar" aria-label="Review comments">
+        <div class="sidebar-head">
+          <div class="sidebar-head-row"><h2>Comments</h2><span id="comment-count"></span></div>
+          <p>Drafts are stored locally. Submit to a host when available; export is the fallback.</p>
+        </div>
+        <ul class="comment-list" id="comment-list"></ul>
+        <form class="composer" id="comment-form">
+          <div class="target" id="comment-target">Select a point on a screen.</div>
+          <div class="form-row">
+            <select id="comment-category" aria-label="Comment category">
+              <option value="problem">Problem</option>
+              <option value="suggestion">Suggestion</option>
+              <option value="question">Question</option>
+              <option value="approval">Approval</option>
+            </select>
+            <select id="comment-priority" aria-label="Comment priority">
+              <option value="important">Important</option>
+              <option value="blocking">Blocking</option>
+              <option value="later">Later</option>
+            </select>
+          </div>
+          <label for="comment-content" class="target">Comment</label>
+          <textarea id="comment-content" required placeholder="Describe the issue, suggestion, or decision needed."></textarea>
+          <div class="composer-actions">
+            <button type="reset">Cancel</button>
+            <button type="submit" class="primary">Add comment</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <dialog id="host-dialog" aria-labelledby="host-dialog-title">
+    <form id="host-form" class="host-form">
+      <h2 id="host-dialog-title">Connect a local host bridge</h2>
+      <p>Start the trusted loopback bridge from this Skill, then enter its printed URL and the bearer token you configured at startup. The token stays in this page's memory and is never exported.</p>
+      <label for="bridge-url">Bridge URL
+        <input id="bridge-url" type="url" inputmode="url" value="http://127.0.0.1:8768" required>
+      </label>
+      <label for="bridge-token">Bearer token
+        <input id="bridge-token" type="password" autocomplete="off" required>
+      </label>
+      <div class="host-form-actions">
+        <button type="button" id="disconnect-host">Disconnect</button>
+        <button type="button" id="close-host-dialog">Cancel</button>
+        <button type="submit" class="primary">Connect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="template-W01">
+    <article class="wireframe" data-component-id="W01.root" aria-label="Search screen wireframe">
+      <div class="wf-status"><span>9:41</span><span>● ● ▰</span></div>
+      <div class="wf-nav"><span>Carely</span><span class="wf-icon">?</span></div>
+      <h2 class="wf-title">What do you need help with?</h2>
+      <p class="wf-copy">Describe your need and we will suggest the right service.</p>
+      <div class="wf-field" data-component-id="W01.search">Search services or symptoms</div>
+      <div class="wf-button" data-component-id="W01.submit">Find services</div>
+      <div class="wf-section">Common services</div>
+      <div class="wf-row" data-component-id="W01.service-1"><span class="wf-thumb"></span><span class="wf-lines"><span class="wf-line"></span><span class="wf-line short"></span></span><span>›</span></div>
+      <div class="wf-row" data-component-id="W01.service-2"><span class="wf-thumb"></span><span class="wf-lines"><span class="wf-line"></span><span class="wf-line short"></span></span><span>›</span></div>
+    </article>
+  </template>
+
+  <template id="template-W02-svg">
+    <svg viewBox="0 0 320 420" role="img" aria-labelledby="svg-w02-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="svg-w02-title">Low-fidelity time selection wireframe</title>
+      <rect width="320" height="420" fill="#fff"/>
+      <text x="18" y="28" font-family="system-ui" font-size="10" fill="#777">9:41</text>
+      <text x="18" y="65" font-family="system-ui" font-size="14">‹</text>
+      <text x="103" y="65" font-family="system-ui" font-size="14" font-weight="600">Choose a time</text>
+      <rect x="18" y="90" width="284" height="66" rx="8" fill="none" stroke="#999"/>
+      <text x="30" y="116" font-family="system-ui" font-size="12">Family doctor consultation</text>
+      <text x="30" y="140" font-family="system-ui" font-size="10" fill="#777">Video · 20 minutes</text>
+      <text x="18" y="185" font-family="system-ui" font-size="11" fill="#777">Available times</text>
+      <g fill="none" stroke="#999">
+        <rect x="18" y="200" width="64" height="34" rx="17"/><rect x="91" y="200" width="64" height="34" rx="17"/><rect x="164" y="200" width="64" height="34" rx="17"/>
+        <rect x="18" y="244" width="64" height="34" rx="17"/><rect x="91" y="244" width="64" height="34" rx="17"/><rect x="164" y="244" width="64" height="34" rx="17"/>
+      </g>
+      <g font-family="system-ui" font-size="10" fill="#555"><text x="33" y="221">09:30</text><text x="106" y="221">10:00</text><text x="179" y="221">11:30</text><text x="33" y="265">14:00</text><text x="106" y="265">15:30</text><text x="179" y="265">17:00</text></g>
+      <rect x="18" y="355" width="284" height="44" rx="8" fill="#262626"/>
+      <text x="143" y="382" font-family="system-ui" font-size="12" fill="#fff">Continue</text>
+    </svg>
+  </template>
+
+  <script type="application/json" id="design-manifest">
+  {
+    "schema_version": "1.0",
+    "board_id": "example-booking-flow",
+    "board_name": "Example booking flow",
+    "design_version": "v1",
+    "sources": [],
+    "storage": { "root": null, "path": null, "path_resolution": "user-or-project-selected" },
+    "versions": [
+      { "version": "v1", "label": "v1 Draft", "created_at": "2000-01-01T00:00:00.000Z" }
+    ],
+    "tokens": {
+      "fidelity": "low",
+      "color_mode": "grayscale",
+      "spacing_scale": [4, 8, 16, 24, 32]
+    },
+    "screens": [
+      { "screen_id": "W01", "name": "Discover service", "version": "v1", "render_type": "html", "template_id": "template-W01", "viewport": "mobile 390x844", "user_intent": "Find an appropriate service" },
+      { "screen_id": "W02", "name": "Choose time", "version": "v1", "render_type": "svg", "template_id": "template-W02-svg", "viewport": "mobile 390x844", "user_intent": "Choose an available appointment time" },
+      { "screen_id": "W03", "name": "ASCII fallback", "version": "v1", "render_type": "ascii", "content": "W03 Confirm booking\n+------------------------------+\n| Service  Family doctor      |\n| Time     Jul 14, 10:00      |\n| Mode     Video              |\n| Price    ¥120               |\n|                            |\n| [ Confirm and pay ]         |\n+------------------------------+", "viewport": "text", "user_intent": "Review and confirm the booking" }
+    ],
+    "components": [
+      { "component_id": "W01.root", "screen_id": "W01", "role": "main" },
+      { "component_id": "W01.search", "screen_id": "W01", "role": "searchbox" },
+      { "component_id": "W01.submit", "screen_id": "W01", "role": "button" },
+      { "component_id": "W01.service-1", "screen_id": "W01", "role": "link" },
+      { "component_id": "W01.service-2", "screen_id": "W01", "role": "link" }
+    ],
+    "interactions": [
+      { "interaction_id": "I001", "trigger_component_id": "W01.submit", "event": "activate", "outcome": "Navigate to W02" }
+    ],
+    "states": [
+      { "state_id": "W01.default", "screen_id": "W01", "name": "default" },
+      { "state_id": "W01.empty", "screen_id": "W01", "name": "empty" },
+      { "state_id": "W01.error", "screen_id": "W01", "name": "error" }
+    ],
+    "assets": [],
+    "submissions": [],
+    "comments": []
+  }
+  </script>
+
+  <script>
+    (() => {
+      "use strict";
+      const manifestNode = document.getElementById("design-manifest");
+      const initialManifest = JSON.parse(manifestNode.textContent);
+      const storageKey = `low-fi-review:${initialManifest.board_id}`;
+      const state = {
+        manifest: initialManifest,
+        version: initialManifest.design_version,
+        selected: null,
+        filter: "all",
+        host: null,
+        bridgeConfig: null,
+        packageDraft: null
+      };
+
+      const els = {
+        boardName: document.getElementById("board-name"),
+        flowTitle: document.getElementById("flow-title"),
+        flowMeta: document.getElementById("flow-meta"),
+        screenGrid: document.getElementById("screen-grid"),
+        commentList: document.getElementById("comment-list"),
+        commentCount: document.getElementById("comment-count"),
+        commentForm: document.getElementById("comment-form"),
+        commentTarget: document.getElementById("comment-target"),
+        commentContent: document.getElementById("comment-content"),
+        commentCategory: document.getElementById("comment-category"),
+        commentPriority: document.getElementById("comment-priority"),
+        versionSelect: document.getElementById("version-select"),
+        statusFilter: document.getElementById("status-filter"),
+        status: document.getElementById("status"),
+        hostStatus: document.getElementById("host-status"),
+        submitReview: document.getElementById("submit-review"),
+        copyPackage: document.getElementById("copy-package"),
+        connectHost: document.getElementById("connect-host"),
+        hostDialog: document.getElementById("host-dialog"),
+        hostForm: document.getElementById("host-form"),
+        bridgeUrl: document.getElementById("bridge-url"),
+        bridgeToken: document.getElementById("bridge-token")
+      };
+
+      function notify(message) {
+        els.status.textContent = message;
+        els.status.classList.add("show");
+        window.setTimeout(() => els.status.classList.remove("show"), 1800);
+      }
+
+      function clampRatio(value) {
+        return Math.max(0, Math.min(1, Number(value.toFixed(4))));
+      }
+
+      function loadDraft() {
+        try {
+          const draft = JSON.parse(localStorage.getItem(storageKey));
+          if (draft && Array.isArray(draft.comments)) state.manifest.comments = draft.comments;
+          if (draft && Array.isArray(draft.submissions)) state.manifest.submissions = draft.submissions;
+        } catch (error) {
+          console.warn("Unable to load local review draft", error);
+        }
+      }
+
+      function saveDraft() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({ comments: state.manifest.comments, submissions: state.manifest.submissions || [] }));
+        } catch (error) {
+          notify("Local storage unavailable. Export before closing.");
+        }
+      }
+
+      function screenTemplate(screen) {
+        if (screen.render_type === "ascii") {
+          const pre = document.createElement("pre");
+          pre.textContent = screen.content || "";
+          return pre;
+        }
+        if (screen.render_type === "image") {
+          const image = document.createElement("img");
+          image.src = screen.src || "";
+          image.alt = screen.alt || "Wireframe requiring visual review";
+          image.dataset.assetId = screen.asset_id || "";
+          return image;
+        }
+        if (screen.render_type === "html" || screen.render_type === "svg") {
+          const template = document.getElementById(screen.template_id);
+          if (!template) throw new Error(`Missing template ${screen.template_id}`);
+          return template.content.cloneNode(true);
+        }
+        throw new Error(`Unsupported render_type ${screen.render_type}`);
+      }
+
+      function componentAt(target, frame) {
+        const component = target.closest("[data-component-id]");
+        return component && frame.contains(component) ? component.dataset.componentId : null;
+      }
+
+      function visibleComments() {
+        return state.manifest.comments.filter(comment => {
+          if (state.filter === "all") return true;
+          if (state.filter === "blocking") return comment.priority === "blocking" && comment.status !== "resolved";
+          return comment.status === state.filter;
+        });
+      }
+
+      function visiblePins() {
+        return visibleComments().filter(comment => comment.screen_version === state.version);
+      }
+
+      function renderVersions() {
+        els.versionSelect.replaceChildren();
+        state.manifest.versions.forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.version;
+          option.textContent = item.label || item.version;
+          option.selected = item.version === state.version;
+          option.dataset.href = item.href || "";
+          els.versionSelect.append(option);
+        });
+      }
+
+      function renderScreens() {
+        els.screenGrid.replaceChildren();
+        state.manifest.screens.filter(screen => screen.version === state.version).forEach(screen => {
+          const card = document.createElement("section");
+          card.className = "screen-card";
+          const heading = document.createElement("div");
+          heading.className = "screen-heading";
+          heading.innerHTML = `<strong></strong><span></span>`;
+          heading.querySelector("strong").textContent = screen.name;
+          heading.querySelector("span").textContent = screen.screen_id;
+          const frame = document.createElement("div");
+          frame.className = "screen-frame";
+          frame.dataset.screenId = screen.screen_id;
+          frame.dataset.screenVersion = screen.version;
+          frame.setAttribute("aria-label", `${screen.screen_id} ${screen.name}`);
+          const content = document.createElement("div");
+          content.className = "screen-content";
+          try { content.append(screenTemplate(screen)); }
+          catch (error) {
+            const fallback = document.createElement("pre");
+            fallback.textContent = error.message;
+            content.append(fallback);
+          }
+          frame.append(content);
+          frame.addEventListener("click", event => selectAnchor(event, frame));
+          card.append(heading, frame);
+          els.screenGrid.append(card);
+        });
+        renderPins();
+      }
+
+      function renderPins() {
+        document.querySelectorAll(".pin").forEach(pin => pin.remove());
+        visiblePins().forEach((comment, index) => {
+          const frame = document.querySelector(`[data-screen-id="${CSS.escape(comment.screen_id)}"][data-screen-version="${CSS.escape(comment.screen_version)}"]`);
+          if (!frame) return;
+          const pin = document.createElement("button");
+          pin.type = "button";
+          pin.className = `pin${state.selected && state.selected.comment_id === comment.comment_id ? " active" : ""}`;
+          pin.style.left = `${comment.anchor.x_ratio * 100}%`;
+          pin.style.top = `${comment.anchor.y_ratio * 100}%`;
+          pin.dataset.commentId = comment.comment_id;
+          pin.setAttribute("aria-label", `Open comment ${comment.comment_id}`);
+          pin.textContent = String(index + 1);
+          pin.addEventListener("click", event => {
+            event.stopPropagation();
+            state.selected = comment;
+            renderComments();
+            renderPins();
+          });
+          frame.append(pin);
+        });
+      }
+
+      function renderComments() {
+        const comments = visibleComments();
+        const currentCount = comments.filter(comment => comment.screen_version === state.version).length;
+        els.commentList.replaceChildren();
+        els.commentCount.textContent = `${comments.length} shown · ${currentCount} on ${state.version}`;
+        if (!comments.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = "No comments match this filter.";
+          els.commentList.append(empty);
+          return;
+        }
+        comments.forEach(comment => {
+          const item = document.createElement("li");
+          item.className = "comment-item";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `comment-button${state.selected && state.selected.comment_id === comment.comment_id ? " active" : ""}`;
+          const meta = document.createElement("span");
+          meta.className = "comment-meta";
+          meta.innerHTML = `<span></span><span></span>`;
+          meta.children[0].textContent = `${comment.screen_id}@${comment.screen_version}${comment.component_id ? ` · ${comment.component_id}` : ""}`;
+          meta.children[1].textContent = comment.comment_id;
+          const text = document.createElement("span");
+          text.className = "comment-text";
+          text.textContent = comment.content;
+          const footer = document.createElement("span");
+          footer.className = "comment-footer";
+          footer.innerHTML = `<span></span><span></span>`;
+          footer.children[0].textContent = `${comment.category} · ${comment.priority}`;
+          if (comment.priority === "blocking") footer.children[0].className = "priority-blocking";
+          footer.children[1].textContent = comment.status;
+          button.append(meta, text, footer);
+          button.addEventListener("click", () => {
+            state.selected = comment;
+            renderComments();
+            renderPins();
+            document.querySelector(`[data-comment-id="${CSS.escape(comment.comment_id)}"]`)?.focus();
+          });
+          item.append(button);
+          els.commentList.append(item);
+        });
+      }
+
+      function selectAnchor(event, frame) {
+        const rect = frame.getBoundingClientRect();
+        const x = clampRatio((event.clientX - rect.left) / rect.width);
+        const y = clampRatio((event.clientY - rect.top) / rect.height);
+        state.selected = {
+          screen_id: frame.dataset.screenId,
+          component_id: componentAt(event.target, frame),
+          screen_version: frame.dataset.screenVersion,
+          anchor: { x_ratio: x, y_ratio: y }
+        };
+        els.commentTarget.textContent = `Target: ${state.selected.screen_id}${state.selected.component_id ? ` · ${state.selected.component_id}` : ""} · ${Math.round(x * 100)}%, ${Math.round(y * 100)}%`;
+        els.commentContent.focus();
+        renderPins();
+      }
+
+      function nextCommentId() {
+        const numbers = state.manifest.comments.map(comment => Number(String(comment.comment_id).replace(/\D/g, "")) || 0);
+        return `C${String(Math.max(0, ...numbers) + 1).padStart(3, "0")}`;
+      }
+
+      function addComment(event) {
+        event.preventDefault();
+        if (!state.selected || !state.selected.screen_id || state.selected.comment_id) {
+          notify("Select a new point on a screen first.");
+          return;
+        }
+        const content = els.commentContent.value.trim();
+        if (!content) return;
+        const comment = {
+          comment_id: nextCommentId(),
+          screen_id: state.selected.screen_id,
+          component_id: state.selected.component_id,
+          screen_version: state.selected.screen_version,
+          anchor: state.selected.anchor,
+          category: els.commentCategory.value,
+          priority: els.commentPriority.value,
+          content,
+          status: "open",
+          created_at: new Date().toISOString(),
+          resolution: null
+        };
+        state.manifest.comments.push(comment);
+        state.selected = comment;
+        els.commentForm.reset();
+        els.commentTarget.textContent = "Select a point on a screen.";
+        saveDraft();
+        renderComments();
+        renderPins();
+        notify("Comment saved locally.");
+      }
+
+      function currentManifest() {
+        return JSON.parse(JSON.stringify(state.manifest));
+      }
+
+      function normalizeBridgeUrl(value) {
+        const url = new URL(String(value || "").trim());
+        const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]" || url.hostname === "::1";
+        if (url.protocol !== "http:" || !loopback || url.username || url.password || url.search || url.hash) {
+          throw new Error("Bridge URL must use plain HTTP on 127.0.0.1, localhost, or [::1], without URL credentials.");
+        }
+        return url.origin;
+      }
+
+      async function requestBridge(path, options = {}) {
+        if (!state.bridgeConfig) throw new Error("No bridge configured");
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 4000);
+        try {
+          const response = await fetch(`${state.bridgeConfig.url}${path}`, {
+            ...options,
+            headers: {
+              "Authorization": `Bearer ${state.bridgeConfig.token}`,
+              ...(options.headers || {})
+            },
+            signal: controller.signal
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.message || `Bridge returned HTTP ${response.status}`);
+          return result;
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      }
+
+      async function detectHost() {
+        if (window.openai && typeof window.openai.sendFollowUpMessage === "function") {
+          return { id: "codex", label: "Codex · injected host", direct: true };
+        }
+        if (window.reviewBoardHost && typeof window.reviewBoardHost.submit === "function") {
+          const id = window.reviewBoardHost.id || "bridge";
+          return { id, label: `${id} · local bridge`, bridge: true };
+        }
+        if (state.bridgeConfig) {
+          try {
+            const health = await requestBridge("/v1/health");
+            const id = ["codex", "claude-code", "opencode"].includes(health.host) ? health.host : "bridge";
+            return {
+              id,
+              label: `${id} · loopback bridge${health.dispatch ? "" : " (queue only)"}`,
+              httpBridge: true
+            };
+          } catch (error) {
+            return { id: "standalone", label: `Bridge unavailable · ${error.message}`, bridgeError: true };
+          }
+        }
+        return { id: "standalone", label: "Standalone · copy/export fallback" };
+      }
+
+      async function refreshHostStatus() {
+        state.host = await detectHost();
+        els.hostStatus.textContent = `Host: ${state.host.label}`;
+        els.submitReview.title = state.host.direct || state.host.bridge || state.host.httpBridge
+          ? `Submit to ${state.host.id}`
+          : "Copy package or export when no host bridge is available";
+        return state.host;
+      }
+
+      function openHostDialog() {
+        if (typeof els.hostDialog.showModal === "function") els.hostDialog.showModal();
+        else els.hostDialog.setAttribute("open", "");
+        els.bridgeUrl.focus();
+      }
+
+      function closeHostDialog() {
+        if (typeof els.hostDialog.close === "function") els.hostDialog.close();
+        else els.hostDialog.removeAttribute("open");
+      }
+
+      async function connectBridge(event) {
+        event.preventDefault();
+        try {
+          state.bridgeConfig = {
+            url: normalizeBridgeUrl(els.bridgeUrl.value),
+            token: els.bridgeToken.value.trim()
+          };
+          if (!state.bridgeConfig.token) throw new Error("Bearer token is required.");
+          const host = await refreshHostStatus();
+          if (!host.httpBridge) throw new Error(host.label);
+          els.bridgeToken.value = "";
+          closeHostDialog();
+          notify(`Connected to ${host.id}.`);
+        } catch (error) {
+          state.bridgeConfig = null;
+          await refreshHostStatus();
+          notify(`Bridge connection failed: ${error.message}`);
+        }
+      }
+
+      async function disconnectBridge() {
+        state.bridgeConfig = null;
+        els.bridgeToken.value = "";
+        await refreshHostStatus();
+        closeHostDialog();
+        notify("Host bridge disconnected.");
+      }
+
+      function nextSubmissionId() {
+        const count = Array.isArray(state.manifest.submissions) ? state.manifest.submissions.length : 0;
+        return `SUB-${new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14)}-${String(count + 1).padStart(3, "0")}`;
+      }
+
+      function buildReviewPackage() {
+        const comments = state.manifest.comments.filter(comment => comment.screen_version === state.version);
+        const signature = JSON.stringify({
+          board_id: state.manifest.board_id,
+          design_version: state.version,
+          comments
+        });
+        if (state.packageDraft?.signature === signature) {
+          return JSON.parse(JSON.stringify(state.packageDraft.pkg));
+        }
+        const pkg = {
+          schema_version: "1.0",
+          submission_id: nextSubmissionId(),
+          board_id: state.manifest.board_id,
+          design_version: state.version,
+          source_ids: (state.manifest.sources || []).map(source => source.source_id),
+          comments,
+          manifest: currentManifest(),
+          processing_policy: {
+            low_risk: "apply",
+            high_impact: "ask_confirmation",
+            preserve_old_versions: true
+          }
+        };
+        state.packageDraft = { signature, pkg };
+        return JSON.parse(JSON.stringify(pkg));
+      }
+
+      function recordSubmission(pkg, host, status, message) {
+        state.manifest.submissions = Array.isArray(state.manifest.submissions) ? state.manifest.submissions : [];
+        const record = {
+          submission_id: pkg.submission_id,
+          host: host.id,
+          design_version: pkg.design_version,
+          comment_ids: pkg.comments.map(comment => comment.comment_id),
+          status,
+          message: message || null,
+          submitted_at: new Date().toISOString()
+        };
+        const existing = state.manifest.submissions.findIndex(item => item.submission_id === pkg.submission_id);
+        if (existing >= 0) state.manifest.submissions[existing] = record;
+        else state.manifest.submissions.push(record);
+        saveDraft();
+      }
+
+      async function copyText(value) {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+        return false;
+      }
+
+      async function submitReview() {
+        if (els.submitReview.disabled) return;
+        els.submitReview.disabled = true;
+        let pkg = null;
+        let host = state.host || { id: "standalone" };
+        try {
+          pkg = buildReviewPackage();
+          host = await refreshHostStatus();
+          const payload = JSON.stringify(pkg, null, 2);
+          const prompt = `请根据以下低保真评审批注修改当前设计。先判断每条批注影响；低风险修改直接生成新版本，高影响或冲突修改先确认。不得覆盖旧版本。\n\n${payload}`;
+          if (host.direct) {
+            await window.openai.sendFollowUpMessage({ title: "提交低保真批注", prompt });
+            recordSubmission(pkg, host, "submitted");
+            notify("Submitted to Codex.");
+            return;
+          }
+          if (host.bridge) {
+            const result = await window.reviewBoardHost.submit(pkg);
+            recordSubmission(pkg, host, result?.status || "submitted", result?.message);
+            notify(result?.message || `Submitted to ${host.id}.`);
+            return;
+          }
+          if (host.httpBridge) {
+            const result = await requestBridge("/v1/reviews", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payload
+            });
+            recordSubmission(pkg, host, result.status || "submitted", result.message);
+            notify(result.message || `Submitted to ${host.id}.`);
+            return;
+          }
+          if (await copyText(payload)) {
+            recordSubmission(pkg, host, "fallback-required", "Copied review package to clipboard.");
+            notify("No host bridge. Review package copied.");
+            return;
+          }
+          throw new Error("clipboard unavailable");
+        } catch (error) {
+          if (pkg) recordSubmission(pkg, host, "failed", error.message);
+          notify(`Host submit unavailable. Export JSON instead: ${error.message}`);
+        } finally {
+          els.submitReview.disabled = false;
+        }
+      }
+
+      async function copyPackage() {
+        const payload = JSON.stringify(buildReviewPackage(), null, 2);
+        if (await copyText(payload)) {
+          notify("Review package copied.");
+          return;
+        }
+        download(`${state.manifest.board_id}-${state.version}-review-package.json`, "application/json", payload);
+        notify("Clipboard unavailable. Review package downloaded.");
+      }
+
+      function download(name, type, content) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = name;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportJson() {
+        const payload = { exported_at: new Date().toISOString(), manifest: currentManifest() };
+        download(`${state.manifest.board_id}-${state.version}-feedback.json`, "application/json", JSON.stringify(payload, null, 2));
+      }
+
+      function exportMarkdown() {
+        const comments = state.manifest.comments.filter(comment => comment.screen_version === state.version);
+        const rows = comments.map(comment => `| ${comment.comment_id} | ${comment.screen_id} | ${comment.component_id || "-"} | ${comment.priority} | ${comment.status} | ${comment.content.replace(/\|/g, "\\|").replace(/\n/g, " ")} |`);
+        const markdown = `# ${state.manifest.board_name} review\n\n- Version: ${state.version}\n- Exported: ${new Date().toISOString()}\n\n| ID | Screen | Component | Priority | Status | Comment |\n|---|---|---|---|---|---|\n${rows.join("\n")}\n`;
+        download(`${state.manifest.board_id}-${state.version}-feedback.md`, "text/markdown", markdown);
+      }
+
+      function exportHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelector("#design-manifest").textContent = JSON.stringify(currentManifest(), null, 2);
+        const serialized = `<!doctype html>\n${clone.outerHTML}`;
+        download(`${state.manifest.board_id}-${state.version}-review.html`, "text/html", serialized);
+      }
+
+      async function importFeedback(file) {
+        try {
+          const payload = JSON.parse(await file.text());
+          const imported = payload.manifest || payload;
+          if (imported.schema_version !== "1.0" || !Array.isArray(imported.comments)) throw new Error("Unsupported or invalid feedback schema");
+          const knownScreens = new Set(state.manifest.screens.map(screen => `${screen.screen_id}@${screen.version}`));
+          const knownComponents = new Set(state.manifest.components.map(component => component.component_id));
+          const current = new Map(state.manifest.comments.map(comment => [comment.comment_id, comment]));
+          imported.comments.forEach(comment => {
+            const normalized = { ...comment };
+            const screenKey = `${comment.screen_id}@${comment.screen_version}`;
+            if (!knownScreens.has(screenKey) || (comment.component_id && !knownComponents.has(comment.component_id))) {
+              normalized.status = "needs-clarification";
+              normalized.resolution = normalized.resolution || "Imported target no longer matches the current manifest.";
+            }
+            current.set(comment.comment_id, normalized);
+          });
+          state.manifest.comments = [...current.values()];
+          saveDraft();
+          renderComments();
+          renderPins();
+          notify(`Imported ${imported.comments.length} comments.`);
+        } catch (error) {
+          notify(`Import failed: ${error.message}`);
+        }
+      }
+
+      async function init() {
+        loadDraft();
+        await refreshHostStatus();
+        els.boardName.textContent = `/ ${state.manifest.board_name}`;
+        els.flowTitle.textContent = state.manifest.board_name;
+        els.flowMeta.textContent = "Low-fidelity review board · semantic HTML + Design Manifest";
+        renderVersions();
+        renderScreens();
+        renderComments();
+
+        els.commentForm.addEventListener("submit", addComment);
+        els.commentForm.addEventListener("reset", () => {
+          state.selected = null;
+          els.commentTarget.textContent = "Select a point on a screen.";
+          window.setTimeout(renderPins);
+        });
+        els.versionSelect.addEventListener("change", () => {
+          const target = state.manifest.versions.find(item => item.version === els.versionSelect.value);
+          if (target?.href) {
+            if (!/^versions\/v[1-9]\d*\/review\.html$/.test(target.href)) {
+              notify("Blocked unsafe version path.");
+              els.versionSelect.value = state.version;
+              return;
+            }
+            window.location.href = new URL(target.href, window.location.href).href;
+            return;
+          }
+          state.version = target?.version || state.manifest.design_version;
+          state.selected = null;
+          renderScreens();
+          renderComments();
+        });
+        els.statusFilter.addEventListener("change", () => {
+          state.filter = els.statusFilter.value;
+          renderComments();
+          renderPins();
+        });
+        document.getElementById("export-json").addEventListener("click", exportJson);
+        document.getElementById("export-markdown").addEventListener("click", exportMarkdown);
+        document.getElementById("export-html").addEventListener("click", exportHtml);
+        els.submitReview.addEventListener("click", submitReview);
+        els.copyPackage.addEventListener("click", copyPackage);
+        els.connectHost.addEventListener("click", openHostDialog);
+        els.hostForm.addEventListener("submit", connectBridge);
+        document.getElementById("disconnect-host").addEventListener("click", disconnectBridge);
+        document.getElementById("close-host-dialog").addEventListener("click", closeHostDialog);
+        document.getElementById("import-json").addEventListener("change", event => {
+          const file = event.target.files[0];
+          if (file) importFeedback(file);
+          event.target.value = "";
+        });
+        document.getElementById("clear-draft").addEventListener("click", () => {
+          localStorage.removeItem(storageKey);
+          state.manifest.comments = [];
+          state.selected = null;
+          renderComments();
+          renderPins();
+          notify("Local draft cleared.");
+        });
+      }
+
+      init().catch(error => notify(`Board initialization failed: ${error.message}`));
+    })();
+  </script>
+</body>
+</html>
