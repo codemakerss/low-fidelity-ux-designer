@@ -48,7 +48,8 @@ class HostAdapterInstallerTests(unittest.TestCase):
                 self.assertIn("ReviewPackage", text)
                 self.assertIn("board_package.py", text)
                 self.assertNotIn("<skill-root>", text)
-                self.assertIn(str(ROOT / "scripts" / "board_package.py"), text)
+                self.assertIn("<installed-skill-root>", text)
+                self.assertNotIn(str(ROOT), text)
                 if host in {"claude-code", "opencode"}:
                     self.assertIn("$ARGUMENTS", text)
 

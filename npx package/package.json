@@ -1,0 +1,40 @@
+{
+  "name": "low-fidelity-ux-designer",
+  "version": "0.1.0",
+  "description": "Install and manage the Low-Fidelity UX Designer skill for Codex, Claude Code, and OpenCode.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "low-fidelity-ux-designer": "bin/low-fidelity-ux-designer.mjs"
+  },
+  "scripts": {
+    "audit:package": "node scripts/audit-package.mjs",
+    "test": "node --test tests/cli.test.mjs tests/installer.test.mjs tests/safety.test.mjs"
+  },
+  "keywords": [
+    "ai",
+    "claude-code",
+    "codex",
+    "design",
+    "low-fidelity",
+    "opencode",
+    "skill",
+    "ux",
+    "wireframe"
+  ],
+  "files": [
+    "bin",
+    "lib",
+    "skill",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  }
+}
